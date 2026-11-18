@@ -1,0 +1,93 @@
+name: CI
+
+# The gates (backlog/docs/commands.md), on a GitHub-hosted x86-64 Ubuntu
+# runner, on every push to main, on pull requests and on manual dispatch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publication:
+    name: publication guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Publication guard
+        run: scripts/publication-guard.sh
+
+  test:
+    name: test (x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: never
+      RUSTC_WRAPPER: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      # The Rust gates start with the first crate: Cargo has no empty workspace.
+      - name: Workspace present
+        id: workspace
+        run: |
+          if [[ -f Cargo.toml ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No Cargo.toml yet: the Rust gates are skipped."
+          fi
+
+      - name: Install Nix
+        if: ${{ steps.workspace.outputs.present == 'true' }}
+        uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
+        with:
+          nix_version: "2.29.2"
+          github_access_token: ""
+          enable_kvm: false
+
+      - name: Dev shell
+        id: devshell
+        if: ${{ steps.workspace.outputs.present == 'true' }}
+        run: nix develop --no-update-lock-file --command rustc --version
+
+      # Every gate below runs even after an earlier failure, and any failed
+      # gate fails the job. pre-commit and gpg-uid-guard stay local.
+      - name: Formatting
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        run: nix develop --no-update-lock-file --command cargo fmt --all --check
+
+      - name: Clippy
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        run: nix develop --no-update-lock-file --command cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Tests
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        run: nix develop --no-update-lock-file --command cargo nextest run --workspace --all-features --locked --no-fail-fast
+
+      - name: Doctests
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        run: nix develop --no-update-lock-file --command cargo test --workspace --doc --all-features --locked
+
+      - name: Licences (cargo-deny)
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        run: nix develop --no-update-lock-file --command cargo deny --all-features check licenses bans sources
