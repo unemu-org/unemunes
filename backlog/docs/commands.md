@@ -1,8 +1,6 @@
 # Commands
 
 Run these inside the dev shell (`nix develop --no-update-lock-file`, or direnv).
-The Rust gates need a Cargo workspace; it arrives with the first crate, and
-until then CI skips them.
 
 ## Gates
 

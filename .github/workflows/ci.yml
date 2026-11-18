@@ -46,19 +46,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The Rust gates start with the first crate: Cargo has no empty workspace.
-      - name: Workspace present
-        id: workspace
-        run: |
-          if [[ -f Cargo.toml ]]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Cargo.toml yet: the Rust gates are skipped."
-          fi
-
       - name: Install Nix
-        if: ${{ steps.workspace.outputs.present == 'true' }}
         uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
         with:
           nix_version: "2.29.2"
@@ -67,7 +55,6 @@ jobs:
 
       - name: Dev shell
         id: devshell
-        if: ${{ steps.workspace.outputs.present == 'true' }}
         run: nix develop --no-update-lock-file --command rustc --version
 
       # Every gate below runs even after an earlier failure, and any failed

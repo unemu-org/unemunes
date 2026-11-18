@@ -1,0 +1,17 @@
+[package]
+name = "x65"
+description = "Guest-agnostic MOS 6502-family processor core, one bus access per cycle."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+keywords = ["6502", "emulator", "cpu"]
+categories = ["emulators", "no-std"]
+
+# No dependencies of any kind, development ones included: the crate must be
+# able to leave this workspace as a move of one directory (decision-1).
+# Oracle harnesses that need parsers live in their own crates.
+# tests/boundary.rs enforces it.
+[dependencies]

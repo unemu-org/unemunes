@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/x65"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+# The front end compiles this core: keep this at or below its toolchain.
+rust-version = "1.98"
+repository = "https://github.com/unemu-org/unemunes"
+publish = false
