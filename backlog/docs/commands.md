@@ -25,6 +25,23 @@ crates.io and github.com. It needs only bash 3.2 and POSIX tools, so it runs
 without the dev shell. Set `PUBLICATION_GUARD_PRIVATE_HOSTS` (comma-separated)
 locally to check private names too; CI never sets it.
 
+## Test oracles
+
+Oracles that are not committed (decision-3) are fetched into the ignored
+directory `.oracles/`, each file pinned by URL and SHA-256 in
+`scripts/oracles.manifest`:
+
+```sh
+scripts/fetch-oracles.sh list                 # sets and file counts
+scripts/fetch-oracles.sh fetch sst-nes6502    # about 1.1 GB
+scripts/fetch-oracles.sh fetch nestest
+scripts/fetch-oracles.sh verify               # offline check of what is present
+```
+
+A download that does not match its pin is removed and fails the run. Tests
+that need a set skip with a message naming the fetch command when it is
+absent.
+
 ## Hooks
 
 ```sh

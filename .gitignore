@@ -2,6 +2,9 @@
 /target/
 **/*.rs.bk
 
+# Fetched test oracles (scripts/fetch-oracles.sh, decision-3)
+/.oracles/
+
 # Nix and direnv
 /result
 /result-*
