@@ -12,9 +12,9 @@
 //! the cartridge above. A read nothing answers returns the last value on the
 //! data bus; the controller ports drive only bits 4 to 0 and leave bits 7 to 5
 //! from the bus (NESdev wiki, "Open bus behavior", revision 23814); the PPU's
-//! registers answer with the PPU's own I/O latch. The APU
-//! registers come with the sound (bead `nes-a3h.5`): until then they accept
-//! writes and read as open bus.
+//! registers answer with the PPU's own I/O latch. The APU is silent for now
+//! (`apu`): `$4015` reads its status without touching open bus, and the
+//! other APU registers read as open bus.
 //!
 //! OAM DMA (NESdev wiki, "DMA", revision 23450): a write to `$4014` makes the
 //! DMA unit halt the CPU on its next read cycle; the halted cycle repeats the
@@ -27,6 +27,7 @@
 
 use x65::{Bus, Cpu, CpuState, Event, Lines, Model};
 
+use crate::apu::Apu;
 use crate::cartridge::Cartridge;
 use crate::controller::{Buttons, Controller};
 use crate::mapper::{board, Mapper, UnsupportedBoard};
@@ -53,6 +54,7 @@ pub struct Config {
 pub(crate) struct Board {
     ram: [u8; 0x800],
     ppu: Ppu,
+    apu: Apu,
     mapper: Box<dyn Mapper>,
     controllers: [Controller; 2],
     open_bus: u8,
@@ -66,6 +68,7 @@ impl Board {
         Board {
             ram: [config.ram_fill; 0x800],
             ppu: Ppu::new(),
+            apu: Apu::default(),
             mapper,
             controllers: [Controller::default(); 2],
             open_bus: 0,
@@ -90,6 +93,10 @@ impl Board {
     /// One read cycle by the CPU or the DMA unit.
     fn read_cycle(&mut self, address: u16) -> u8 {
         self.clock();
+        if address == 0x4015 {
+            // Inside the CPU: the external bus, and so open bus, is untouched.
+            return self.apu.read_status(self.open_bus);
+        }
         let value = match address {
             0x0000..=0x1FFF => self.ram[usize::from(address & 0x07FF)],
             0x2000..=0x3FFF => self.ppu.read_register(address & 7, &mut *self.mapper),
@@ -116,6 +123,7 @@ impl Board {
                     pad.write_strobe(value & 1 != 0);
                 }
             }
+            0x4000..=0x4013 | 0x4015 | 0x4017 => self.apu.write_register(address, value),
             0x4000..=0x401F => {}
             _ => self.mapper.cpu_write(address, value),
         }
@@ -227,6 +235,18 @@ impl Nes {
                 .iter()
                 .map(|&p| self.palette[usize::from(p & 0x1FF)]),
         );
+    }
+
+    /// Append the sound made since the last call, at `apu::RATE`, to `out`.
+    pub fn drain_audio(&mut self, out: &mut Vec<[i16; 2]>) {
+        let master = self.master_cycles();
+        self.board.apu.drain(master, out);
+    }
+
+    /// Drop the sound made since the last call, as when nobody takes it.
+    pub fn skip_audio(&mut self) {
+        let master = self.master_cycles();
+        self.board.apu.skip(master);
     }
 
     /// Set the buttons held on controller `port` (0 or 1).
@@ -347,6 +367,15 @@ mod tests {
             };
             assert!((0..=255u8).all(|i| b.ppu.oam()[usize::from(i)] == want(i)));
         }
+    }
+
+    #[test]
+    fn apu_status_keeps_open_bus() {
+        let mut b = board(Config::default());
+        b.write(0x0000, 0xFF);
+        b.read(0x0000);
+        assert_eq!(b.read(0x4015), 0x20, "silent, bit 5 from open bus");
+        assert_eq!(b.read(0x4018), 0xFF, "the $4015 read left open bus alone");
     }
 
     #[test]

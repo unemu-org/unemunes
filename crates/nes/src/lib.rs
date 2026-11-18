@@ -12,6 +12,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod apu;
 pub mod cartridge;
 pub mod controller;
 pub mod machine;
