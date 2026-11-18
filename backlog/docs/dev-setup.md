@@ -23,7 +23,10 @@ scripts/skills-bootstrap.sh
 pre-commit install --install-hooks
 ```
 
-Uncached hook environments may download tools. Configure GPG signing and a
+Uncached hook environments may download tools. Commit and push from the dev
+shell (or with direnv active): the pre-push hook runs clippy with the
+workspace's toolchain, and a host toolchain older than the declared
+`rust-version` fails it. Configure GPG signing and a
 matching e-mail and key UID yourself. The UID hook checks consistency only when
 signing is already enabled; it does not enforce or configure signing.
 
