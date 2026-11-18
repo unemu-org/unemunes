@@ -18,7 +18,24 @@
 //!   Programming Manual and Hardware Manual, MOS Technology, January 1976)
 //!   and has a witness test (decision-2).
 //!
-//! The public API is recorded as a decision before the instruction set lands.
+//! The API is decision-4: a [`Bus`] with one call per cycle and the
+//! [`Lines`] read after each access; a [`Cpu`] that is a state machine of
+//! cycles, run one cycle at a time by [`Cpu::tick`] or one instruction at a
+//! time by [`Cpu::step`]; and its whole state as plain data, [`CpuState`].
+//!
+//! Implemented today: the documented instructions of the [`Model::Rp2a03`],
+//! the reset sequence, and NMI and IRQ polled at the end of an instruction's
+//! second-to-last cycle. An undocumented opcode answers
+//! [`Event::Unsupported`].
 
 #![no_std]
 #![forbid(unsafe_code)]
+
+mod bus;
+mod cpu;
+mod decode;
+mod state;
+
+pub use crate::bus::{Bus, Lines};
+pub use crate::cpu::Cpu;
+pub use crate::state::{flags, CpuState, Event, Interrupt, Model, Sequence};

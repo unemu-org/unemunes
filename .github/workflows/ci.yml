@@ -57,6 +57,28 @@ jobs:
         id: devshell
         run: nix develop --no-update-lock-file --command rustc --version
 
+      # The oracle corpora of scripts/oracles.manifest (decision-3), cached by
+      # the manifest's hash; fetch downloads only what is missing or wrong and
+      # checks every file's pin. The cache is saved right after a good fetch,
+      # so a red gate later in the job does not throw it away.
+      - name: Oracle cache
+        id: oracle-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .oracles
+          key: oracles-${{ hashFiles('scripts/oracles.manifest') }}
+
+      - name: Oracles
+        id: oracles
+        run: scripts/fetch-oracles.sh fetch sst-nes6502
+
+      - name: Save oracle cache
+        if: ${{ steps.oracles.outcome == 'success' && steps.oracle-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .oracles
+          key: oracles-${{ hashFiles('scripts/oracles.manifest') }}
+
       # Every gate below runs even after an earlier failure, and any failed
       # gate fails the job. pre-commit and gpg-uid-guard stay local.
       - name: Formatting
@@ -68,7 +90,9 @@ jobs:
         run: nix develop --no-update-lock-file --command cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Tests
-        if: ${{ !cancelled() && steps.devshell.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.devshell.outcome == 'success' && steps.oracles.outcome == 'success' }}
+        env:
+          X65_SST_REQUIRED: "1"
         run: nix develop --no-update-lock-file --command cargo nextest run --workspace --all-features --locked --no-fail-fast
 
       - name: Doctests
