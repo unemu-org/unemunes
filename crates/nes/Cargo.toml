@@ -1,0 +1,14 @@
+[package]
+name = "nes"
+description = "The Nintendo Entertainment System (NTSC) over the x65 processor: cartridges, PPU, APU, controllers and the console's bus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# Only the processor (decision-1). A version beside the path keeps
+# cargo-deny's wildcard ban satisfied. tests/boundary.rs enforces it.
+[dependencies]
+x65 = { path = "../x65", version = "0.0.1" }

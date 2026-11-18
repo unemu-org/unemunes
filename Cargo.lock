@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "nes"
+version = "0.0.1"
+dependencies = [
+ "x65",
+]
+
+[[package]]
 name = "x65"
 version = "0.0.1"
