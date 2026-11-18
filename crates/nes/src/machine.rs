@@ -11,7 +11,8 @@
 //! `$3FFF`; APU and I/O at `$4000–$4017`; test registers at `$4018–$401F`;
 //! the cartridge above. A read nothing answers returns the last value on the
 //! data bus; the controller ports drive only bits 4 to 0 and leave bits 7 to 5
-//! from the bus (NESdev wiki, "Open bus behavior", revision 23814). The APU
+//! from the bus (NESdev wiki, "Open bus behavior", revision 23814); the PPU's
+//! registers answer with the PPU's own I/O latch. The APU
 //! registers come with the sound (bead `nes-a3h.5`): until then they accept
 //! writes and read as open bus.
 //!
@@ -29,6 +30,7 @@ use x65::{Bus, Cpu, CpuState, Event, Lines, Model};
 use crate::cartridge::Cartridge;
 use crate::controller::{Buttons, Controller};
 use crate::mapper::{board, Mapper, UnsupportedBoard};
+use crate::palette;
 use crate::ppu::Ppu;
 
 /// Master-clock cycles per CPU cycle (NTSC).
@@ -76,7 +78,7 @@ impl Board {
     /// One CPU cycle of time.
     fn clock(&mut self) {
         for _ in 0..DOTS_PER_CPU {
-            self.ppu.tick();
+            self.ppu.tick(&mut *self.mapper);
         }
         self.cpu_cycles += 1;
     }
@@ -90,7 +92,7 @@ impl Board {
         self.clock();
         let value = match address {
             0x0000..=0x1FFF => self.ram[usize::from(address & 0x07FF)],
-            0x2000..=0x3FFF => self.ppu.read_register(address & 7, self.open_bus),
+            0x2000..=0x3FFF => self.ppu.read_register(address & 7, &mut *self.mapper),
             0x4016 => self.open_bus & 0xE0 | self.controllers[0].read(),
             0x4017 => self.open_bus & 0xE0 | self.controllers[1].read(),
             0x4000..=0x401F => self.open_bus,
@@ -105,7 +107,9 @@ impl Board {
         self.open_bus = value;
         match address {
             0x0000..=0x1FFF => self.ram[usize::from(address & 0x07FF)] = value,
-            0x2000..=0x3FFF => self.ppu.write_register(address & 7, value),
+            0x2000..=0x3FFF => self
+                .ppu
+                .write_register(address & 7, value, &mut *self.mapper),
             0x4014 => self.oam_dma = Some(value),
             0x4016 => {
                 for pad in &mut self.controllers {
@@ -143,7 +147,10 @@ impl Bus for Board {
     }
 
     fn lines(&mut self) -> Lines {
-        Lines::default()
+        Lines {
+            nmi: self.ppu.nmi(),
+            ..Lines::default()
+        }
     }
 }
 
@@ -151,6 +158,7 @@ impl Bus for Board {
 pub struct Nes {
     cpu: Cpu,
     board: Board,
+    palette: Vec<u32>,
 }
 
 impl Nes {
@@ -163,6 +171,7 @@ impl Nes {
         Ok(Nes {
             cpu: Cpu::new(Model::Rp2a03),
             board: Board::new(board(cartridge)?, config),
+            palette: palette::table(),
         })
     }
 
@@ -200,6 +209,24 @@ impl Nes {
     /// Internal RAM.
     pub fn ram(&self) -> &[u8; 0x800] {
         &self.board.ram
+    }
+
+    /// Whether the PPU finished a picture since the last call.
+    pub fn take_frame_done(&mut self) -> bool {
+        self.board.ppu.take_frame_done()
+    }
+
+    /// The last finished picture as `0x00RRGGBB`, `ppu::WIDTH × ppu::HEIGHT`
+    /// pixels, rows top to bottom, through the computed NTSC palette.
+    pub fn picture_rgb(&self, out: &mut Vec<u32>) {
+        out.clear();
+        out.extend(
+            self.board
+                .ppu
+                .picture()
+                .iter()
+                .map(|&p| self.palette[usize::from(p & 0x1FF)]),
+        );
     }
 
     /// Set the buttons held on controller `port` (0 or 1).
@@ -310,7 +337,15 @@ mod tests {
                 spent, expected,
                 "get on odd {get_on_odd}, $4014 written on cycle parity {write_cycle}"
             );
-            assert!((0..=255u8).all(|i| b.ppu.oam()[usize::from(i)] == i ^ 0x5A));
+            // Byte 2 of each entry keeps only its implemented bits.
+            let want = |i: u8| {
+                if i % 4 == 2 {
+                    (i ^ 0x5A) & 0xE3
+                } else {
+                    i ^ 0x5A
+                }
+            };
+            assert!((0..=255u8).all(|i| b.ppu.oam()[usize::from(i)] == want(i)));
         }
     }
 

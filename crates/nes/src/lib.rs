@@ -3,9 +3,9 @@
 //! Cartridges and their boards, the PPU, the APU, the controllers and the
 //! console's bus and clock (design note `backlog/docs/design/nes-core.md`
 //! §5 to §8). Today: iNES and NES 2.0 images, the NROM board, the memory map
-//! with open bus, the standard controllers, OAM DMA, and the PPU's timing and
-//! object memory; the picture and the sound follow (beads `nes-a3h.4` and
-//! `nes-a3h.5`).
+//! with open bus, the standard controllers, OAM DMA, a PPU that draws
+//! background and sprites, and the NTSC palette computed from the composite
+//! signal; the sound follows (bead `nes-a3h.5`).
 //!
 //! The crate touches nothing of the host (decision-41 (unemupc)): images
 //! arrive as bytes, and time is CPU and master-clock cycles.
@@ -16,6 +16,7 @@ pub mod cartridge;
 pub mod controller;
 pub mod machine;
 pub mod mapper;
+pub mod palette;
 pub mod ppu;
 
 pub use crate::cartridge::{Cartridge, CartridgeError, Format, Mirroring, Region};

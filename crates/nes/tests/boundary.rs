@@ -47,7 +47,7 @@ fn nes_depends_on_x65_only() {
 /// macros and `unsafe` are refused by name.
 #[test]
 fn sources_use_no_host_interface() {
-    const ALLOWED_STD: [&str; 2] = ["std::fmt", "std::error::Error"];
+    const ALLOWED_STD: [&str; 3] = ["std::fmt", "std::error::Error", "std::mem"];
     const FORBIDDEN: [&str; 6] = [
         "println!",
         "eprintln!",
