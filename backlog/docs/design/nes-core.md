@@ -406,6 +406,19 @@ contract's repository to read and its `v0.2.0` tag to pin.
 
 Each failing test of the suites in §11 becomes a bead of its milestone.
 
+**The proof slice comes first** (maintainer decision, 2026-11-18). What
+unemunes has to prove is that the contract is generic enough for one front
+end to show both the PC and the NES. So before the milestones above, one
+slice (epic `nes-a3h`) builds the smallest core that does that: `x65` with the
+documented instructions of the RP2A03 model and plain NMI, IRQ and reset;
+`nes` with NROM, the controllers, OAM DMA as a plain stall and a simple PPU
+(background, sprites, sprite-0 hit, vblank NMI, the computed palette);
+silence at 984 375/22 Hz; and the adapter on contract 0.2 without saved state
+or battery memory. Its own goldens come from a test ROM built from our bytes.
+The architecture is the one above; only the order changes. The slice starts
+when contract `v0.2.0` is tagged. N1 to N4 then complete what the slice left
+out.
+
 ## 14. Questions answered by the maintainer
 
 Answered on 2026-11-18: Q1 (a), Q2 (a), Q3 (a), Q4 (a), Q5 (c), Q6 (a),
