@@ -100,7 +100,8 @@ the rules: `x65` has no dependency; `nes` depends only on `x65`; no crate but
 
 Contract mapping: `MachineDescription::clock` is the master clock as an exact
 `Rate` (NTSC `236250000/11`); `Ticks` count master-clock cycles; `steps()` counts
-CPU cycles, `step_unit` is `"cycle"`. NTSC has exactly three PPU dots per CPU
+instructions (and interrupt or reset sequences), `step_unit` is
+`"instruction"` (decision-4). NTSC has exactly three PPU dots per CPU
 cycle; PAL has 3.2, which master-clock accounting handles without fractions.
 
 **Who drives time.** Every 6502 cycle is one bus access, a read or a write,
@@ -133,7 +134,7 @@ drives RDY and makes its transfers in those cycles, so the repeated reads
 and their side effects on registers such as `$4016` and `$2007` happen as on
 the console. The same input serves a C64's video chip stealing cycles.
 
-**Run limits.** `Machine::run` checks its limits at CPU-cycle boundaries: a
+**Run limits.** `Machine::run` checks its limits at instruction boundaries: a
 deadline is met within one step, as contract §3.5 allows. `Stop::Frame` fires
 when the PPU finishes the last visible line (a fixed dot, chosen in the
 implementing bead and documented there).
@@ -150,30 +151,16 @@ the D flag but does no decimal arithmetic (READ: NESdev wiki, "CPU"; to pin).
 The 65C02 and later CMOS parts are out of scope. A C64's 6510 is the NMOS
 model plus an I/O port the embedder provides.
 
-**API sketch** (not a commitment; a decision in N1 fixes it):
+**API.** [decision-4](<../../decisions/decision-4 - x65-API-bus-input-lines-models-state-and-steps.md>)
+fixes it: a `Bus` with one call per cycle and the input lines after each
+access; a processor that is a state machine of cycles inside, run one cycle
+at a time by `Cpu::tick` or one instruction (or interrupt or reset sequence)
+at a time by `Cpu::step`; plain-data `CpuState`, valid after any cycle; and
+the models `Nmos6502` and `Rp2a03`.
 
-```rust
-/// One bus access per call; every call is one CPU cycle.
-pub trait Bus {
-    fn read(&mut self, address: u16) -> u8;
-    fn write(&mut self, address: u16, value: u8);
-    /// Input lines after the access just performed.
-    fn lines(&self) -> Lines;
-}
-
-pub struct Lines { pub irq: bool, pub nmi: bool, pub ready: bool, pub reset: bool }
-
-impl Cpu {
-    pub fn new(model: Model) -> Self;
-    /// Run one instruction or one interrupt sequence.
-    pub fn step<B: Bus>(&mut self, bus: &mut B) -> Event;
-    pub fn reset<B: Bus>(&mut self, bus: &mut B);
-}
-```
-
-`Bus` is generic, not `dyn`: the contract's object-safety rule binds the
-contract crate, not a CPU library, and the CPU's inner loop wants
-monomorphisation. Rules inside `x65`:
+`step` takes the bus generically, because the CPU's inner loop wants
+monomorphisation; the trait stays object-safe, so `&mut dyn Bus` works too.
+Rules inside `x65`:
 
 - Exactly one bus call per cycle, dummy reads and the double writes of
   read-modify-write instructions included; a test compares the per-cycle bus
@@ -294,7 +281,7 @@ the NES, from the gaps this note raised:
 | Overscan | `Frame::visible`, the safe part of the picture; `aspect` stays the whole picture's |
 
 The description: core id `unemunes`; one platform, id `nes`, with the region
-in the config; the clock `236250000/11` on NTSC; step unit `cycle`; one
+in the config; the clock `236250000/11` on NTSC; step unit `instruction`; one
 display of 256×240 at `128:105`; the sound rate of §6; one `Pad` port per
 controller in player order; the cartridge as a slot that is not removable.
 
