@@ -249,6 +249,16 @@ impl Nes {
         self.board.apu.skip(master);
     }
 
+    /// Press the reset button: the CPU runs its reset sequence at the next
+    /// instruction boundary; memory and the cartridge keep their state. The
+    /// PPU's and APU's own reset behaviour ("PPU power up state") is
+    /// milestone N2a's.
+    pub fn press_reset(&mut self) {
+        let mut cpu = self.cpu.state();
+        cpu.reset_pending = true;
+        self.cpu.set_state(cpu);
+    }
+
     /// Set the buttons held on controller `port` (0 or 1).
     pub fn set_buttons(&mut self, port: usize, buttons: Buttons) {
         self.board.controllers[port].buttons = buttons;
@@ -385,6 +395,17 @@ mod tests {
             b.read(0x8000);
         }
         assert_eq!(b.ppu.position(), (1, 600 - 341));
+    }
+
+    #[test]
+    fn the_reset_button_reruns_the_reset_sequence_and_keeps_ram() {
+        let mut nes = Nes::new(&cartridge(), Config::default()).unwrap();
+        nes.step();
+        nes.board.ram[0x10] = 0x42;
+        nes.press_reset();
+        assert_eq!(nes.step(), Event::Reset);
+        assert_eq!(nes.cpu().pc, 0xBFBF);
+        assert_eq!(nes.ram()[0x10], 0x42);
     }
 
     #[test]

@@ -20,9 +20,9 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
-        # Same toolchain and input pins as x80; keep [workspace.package]
+        # The contract crate needs Rust 1.99; input pins as x80. Keep [workspace.package]
         # rust-version in Cargo.toml at or below the front end's toolchain.
-        rustToolchain = pkgs.rust-bin.stable."1.98.1".default.override {
+        rustToolchain = pkgs.rust-bin.stable."1.99.1".default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         };
       in

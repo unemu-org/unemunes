@@ -5,6 +5,9 @@
 # Fetched test oracles (scripts/fetch-oracles.sh, decision-3)
 /.oracles/
 
+# A local [patch] of the contract (unemu-core-api docs/embedding.md)
+/.cargo/config.toml
+
 # Nix and direnv
 /result
 /result-*

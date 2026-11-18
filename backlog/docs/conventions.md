@@ -1,7 +1,7 @@
 # Conventions
 
-Rust edition 2021. Development toolchain: Rust 1.98.1, the same as x80 and
-x86jit, from the flake. The declared `rust-version` stays at or below the front
+Rust edition 2021. Development toolchain: Rust 1.99.1, which the contract crate needs (x80 and
+x86jit pin 1.98.1), from the flake. The declared `rust-version` stays at or below the front
 end's toolchain, because the front end compiles this core.
 
 - Every crate is `#![forbid(unsafe_code)]` and keeps the embeddability rules of

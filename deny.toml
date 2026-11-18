@@ -25,3 +25,5 @@ yanked = "deny"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+# The contract, pinned by revision (decision-40 (unemupc), embedding.md).
+allow-git = ["https://github.com/unemu-org/unemu-core-api"]

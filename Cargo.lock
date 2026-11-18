@@ -10,5 +10,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "unemu-core-api"
+version = "0.2.0"
+source = "git+https://github.com/unemu-org/unemu-core-api?rev=56c4640146339e967b69925b724bbec0cf878df8#56c4640146339e967b69925b724bbec0cf878df8"
+
+[[package]]
+name = "unemu-nes-core"
+version = "0.0.1"
+dependencies = [
+ "nes",
+ "unemu-core-api",
+ "x65",
+]
+
+[[package]]
 name = "x65"
 version = "0.0.1"

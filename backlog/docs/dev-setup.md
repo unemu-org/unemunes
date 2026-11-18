@@ -2,7 +2,7 @@
 
 ## Toolchain
 
-The default flake shell selects Rust **1.98.1**, the same as x80 and x86jit,
+The default flake shell selects Rust **1.99.1**, which `unemu-core-api` needs (x80 and x86jit pin 1.98.1),
 with rust-src, rust-analyzer, clippy and rustfmt. `flake.lock` keeps the same
 input pins as x80. The shell adds nextest, cargo-deny, pre-commit and
 Backlog.md. No Nix package output is defined yet.
