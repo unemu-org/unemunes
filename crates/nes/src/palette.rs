@@ -14,6 +14,12 @@
 //!   (bit 5: wave `$C`, bit 6: wave 4, bit 7: wave 8), except for `$xE` and
 //!   `$xF`; attenuated levels are measured values too.
 //!
+//! The PPU's output impedance depends on the signal level, which delays the
+//! chroma of brighter colours: "Differential Phase Distortion" estimates
+//! about -5° of hue rotation per palette row on a 2C02G (-2.5° on a 2C02E),
+//! from hardware captures. The table models the 2C02G: the decoded chroma of
+//! row `r` is rotated by `-5° × r`, so row 0 keeps its hue.
+//!
 //! The voltages are the terminated measurements the page lists. Decoding
 //! takes the mean over a subcarrier cycle as luma and demodulates U and V
 //! against the colour burst, which has the phase of wave 8 (the `-U` axis),
@@ -39,6 +45,21 @@ const COS30: [f64; 12] = {
     const H: f64 = 0.866_025_403_784_438_6; // √3 / 2
     [1.0, H, 0.5, 0.0, -0.5, -H, -1.0, -H, -0.5, 0.0, 0.5, H]
 };
+
+/// cos and sin of the 2C02G's differential phase rotation, -5° × row, for
+/// rows 0 to 3 (exact decimal values of cos and sin of 0°, 5°, 10°, 15°).
+const ROW_COS: [f64; 4] = [
+    1.0,
+    0.996_194_698_091_745_5,
+    0.984_807_753_012_208,
+    0.965_925_826_289_068_3,
+];
+const ROW_SIN: [f64; 4] = [
+    0.0,
+    -0.087_155_742_747_658_17,
+    -0.173_648_177_666_930_33,
+    -0.258_819_045_102_520_74,
+];
 
 /// Whether wave `n` (1 to 12) is high in phase `p` (0 to 11), from the
 /// page's phase diagram: wave 1 is high in phases 0–5, and each next wave one
@@ -102,6 +123,10 @@ pub fn rgb(index: u8, emphasis: u8) -> u32 {
     // correction").
     let u = 2.0 * (cos_sum + sin_sum) * R / 12.0;
     let v = 2.0 * (cos_sum - sin_sum) * R / 12.0;
+    // Differential phase distortion: rotate by -5° per row.
+    let row = usize::from(index >> 4 & 3);
+    let (c, s) = (ROW_COS[row], ROW_SIN[row]);
+    let (u, v) = (u * c - v * s, u * s + v * c);
 
     let r = y + v * 1.139_883;
     let g = y - u * 0.394_642 - v * 0.580_622;
@@ -151,6 +176,17 @@ mod tests {
         assert!(r > g && r > b, "$16 red: {r} {g} {b}");
         let (r, g, b) = channels(rgb(0x1A, 0));
         assert!(g > r && g > b, "$1A green: {r} {g} {b}");
+    }
+
+    #[test]
+    fn brighter_rows_turn_their_hue_by_the_2c02g_phase_distortion() {
+        // Row 0 is not turned; row 2 by -10°, which takes $22 from violet to
+        // blue: blue well above red, red no longer near blue.
+        let (r, g, b) = channels(rgb(0x22, 0));
+        assert!(b == 255 && r < 0xA0 && g < 0xA0, "$22: {r} {g} {b}");
+        assert_eq!(rgb(0x22, 0), 0x96_8A_FF, "pinned for the 2C02G model");
+        let (r1, _, b1) = channels(rgb(0x21, 0));
+        assert!(b1 > r1 + 150, "$21 sky blue: {r1} {b1}");
     }
 
     #[test]

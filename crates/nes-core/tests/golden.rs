@@ -185,4 +185,4 @@ fn the_checkerboard_is_drawn_and_matches_its_golden() {
 }
 
 /// The digest of the checkerboard, pinned for this revision (§13.6 step 16).
-const GOLDEN: u64 = 0x64CB_5BF7_C2F1_1325;
+const GOLDEN: u64 = 0xFCDF_D186_11FE_D325;
