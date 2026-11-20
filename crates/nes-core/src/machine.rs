@@ -1,4 +1,4 @@
-//! The machine a front end drives (contract 0.2, `Machine`).
+//! The machine a front end drives (contract 0.3, `Machine`).
 //!
 //! Time: ticks are master-clock cycles at 236 250 000 / 11 Hz; a step is an
 //! instruction or an interrupt or reset sequence (decision-4). A run stops at

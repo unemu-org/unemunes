@@ -11,8 +11,8 @@ dependencies = [
 
 [[package]]
 name = "unemu-core-api"
-version = "0.2.0"
-source = "git+https://github.com/unemu-org/unemu-core-api?rev=56c4640146339e967b69925b724bbec0cf878df8#56c4640146339e967b69925b724bbec0cf878df8"
+version = "0.3.0"
+source = "git+https://github.com/unemu-org/unemu-core-api?rev=0d490fcb0b97320ac785b12f84a5c49e72f28b1d#0d490fcb0b97320ac785b12f84a5c49e72f28b1d"
 
 [[package]]
 name = "unemu-nes-core"
