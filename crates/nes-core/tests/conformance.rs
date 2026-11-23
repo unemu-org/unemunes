@@ -78,7 +78,7 @@ fn machine(core: &dyn Core, bytes: &[u8]) -> Box<dyn Machine> {
 fn the_description_names_the_core_and_its_platform() {
     let core: &dyn Core = &NesCore;
     let d = core.description();
-    assert_eq!((d.implements.major, d.implements.minor), (0, 4));
+    assert_eq!((d.implements.major, d.implements.minor), (0, 5));
     assert_eq!(d.id, "unemunes");
     assert!(unemu_core_api::CONTRACT.drives(d.implements));
     let platform = &d.platforms[0];

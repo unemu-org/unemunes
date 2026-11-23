@@ -8,13 +8,13 @@ rust-version.workspace = true
 repository.workspace = true
 publish.workspace = true
 
-# The contract by the exact commit of its v0.4.0 tag, never a path or a copy
+# The contract by the exact commit of its v0.5.0 tag, never a path or a copy
 # (core-contract.md §13.5 (unemupc), unemu-core-api docs/embedding.md); a
 # gitignored .cargo/config.toml [patch] for a local checkout.
 [dependencies]
 nes = { path = "../nes", version = "0.0.1" }
-unemu-core-api = { version = "0.4", git = "https://github.com/unemu-org/unemu-core-api", rev = "563f3089f2ad26a189636624faa4696b2bc79d07" }
+unemu-core-api = { version = "0.5", git = "https://github.com/unemu-org/unemu-core-api", rev = "316dd2a1f429cc3ef37a2bed203e89b2160079ff" }
 x65 = { path = "../x65", version = "0.0.1" }
 
 [dev-dependencies]
-unemu-core-api = { version = "0.4", git = "https://github.com/unemu-org/unemu-core-api", rev = "563f3089f2ad26a189636624faa4696b2bc79d07", features = ["test-support"] }
+unemu-core-api = { version = "0.5", git = "https://github.com/unemu-org/unemu-core-api", rev = "316dd2a1f429cc3ef37a2bed203e89b2160079ff", features = ["test-support"] }

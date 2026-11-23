@@ -1,4 +1,4 @@
-//! `unemu-nes-core`: the NES core behind the `unemu-core-api` contract 0.4.
+//! `unemu-nes-core`: the NES core behind the `unemu-core-api` contract 0.5.
 //!
 //! A [`NesCore`] describes the core, recognises iNES and NES 2.0 cartridge
 //! images (`identify`), checks configs (`validate`) and creates machines;
@@ -45,7 +45,7 @@ const PLATFORMS: &[PlatformDescription] =
             .with_content(CONTENT),
     ];
 const DESCRIPTION: CoreDescription = CoreDescription::new(
-    ContractVersion::new(0, 4),
+    ContractVersion::new(0, 5),
     "unemunes",
     "unemunes",
     env!("CARGO_PKG_VERSION"),
