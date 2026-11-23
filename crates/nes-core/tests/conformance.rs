@@ -78,7 +78,7 @@ fn machine(core: &dyn Core, bytes: &[u8]) -> Box<dyn Machine> {
 fn the_description_names_the_core_and_its_platform() {
     let core: &dyn Core = &NesCore;
     let d = core.description();
-    assert_eq!((d.implements.major, d.implements.minor), (0, 3));
+    assert_eq!((d.implements.major, d.implements.minor), (0, 4));
     assert_eq!(d.id, "unemunes");
     assert!(unemu_core_api::CONTRACT.drives(d.implements));
     let platform = &d.platforms[0];
@@ -173,7 +173,12 @@ fn every_promised_control_works() {
     assert!(d.audio.as_ref().unwrap().rate_in_bounds());
     assert_eq!(d.inputs.len(), 2);
     let features = d.features;
-    assert!(features.frame_stops && !features.saved_state && !features.media_changes);
+    assert!(
+        features.frame_stops
+            && !features.saved_state
+            && !features.media_changes
+            && !features.media_additions
+    );
 
     m.set_outputs(Outputs::NONE.with_audio(true));
     let mut sound = Vec::new();
@@ -195,12 +200,9 @@ fn every_promised_control_works() {
         m.reset(*kind).unwrap();
         m.run(RunLimit::until(Ticks(m.now().0 + 100_000))).unwrap();
     }
-    m.input(InputEvent::Pad {
-        port: PortId(0),
-        control: PadControl::Start,
-        pressed: true,
-    });
-    m.input(InputEvent::ReleaseAll);
+    m.input(InputEvent::pad(PortId(0), PadControl::Start, true))
+        .unwrap();
+    m.input(InputEvent::ReleaseAll).unwrap();
     m.run(RunLimit::steps(m.steps() + 10)).unwrap();
     let slots = m.slot_states();
     assert_eq!(slots[0].inserted, Some(0));
@@ -267,11 +269,8 @@ fn the_same_calls_give_the_same_machine() {
         let mut log = Vec::new();
         m.set_outputs(Outputs::NONE.with_audio(true));
         for n in 0..5 {
-            m.input(InputEvent::Pad {
-                port: PortId(n % 2),
-                control: PadControl::A,
-                pressed: n % 3 == 0,
-            });
+            m.input(InputEvent::pad(PortId(n % 2), PadControl::A, n % 3 == 0))
+                .unwrap();
             let stop = m.run(RunLimit::steps(m.steps() + 40_000).with_stop_on_frame(true));
             let frame = m.frame(DisplayId(0)).unwrap();
             let checksum = frame
@@ -356,4 +355,116 @@ fn config_round_trips_through_identify() {
     let identified = identify(&NesCore, &image(&[])).unwrap().unwrap();
     let config = NesConfig::parse(identified.config.media_type, &identified.config.bytes).unwrap();
     assert_eq!(config.cartridge_sha256, DIGEST);
+}
+
+#[test]
+fn unlimited_runs_accept_a_frame_stop_or_reach_a_guest_error() {
+    let mut m = machine(&NesCore, &image(&[]));
+    let unbounded = RunLimit::steps(0).with_steps(None);
+    assert_eq!(
+        m.run(unbounded.with_stop_on_frame(true)).unwrap(),
+        Stop::Frame(DisplayId(0))
+    );
+    assert_eq!(m.status(), Status::Ready);
+
+    let mut m = machine(&NesCore, &image(&[(0, 0x02)]));
+    assert_eq!(m.run(unbounded).unwrap_err().kind, ErrorKind::Guest);
+    assert_eq!(m.status(), Status::Failed);
+}
+
+#[test]
+fn stops_prioritize_errors_then_requested_frames_then_deadlines_then_steps() {
+    let mut m = machine(&NesCore, &image(&[(0, 0x02)]));
+    // Reset consumes 84 ticks; the next opcode fetch crosses tick 85.
+    assert_eq!(
+        m.run(RunLimit::steps(2).with_until(Some(Ticks(85))))
+            .unwrap_err()
+            .kind,
+        ErrorKind::Guest
+    );
+
+    let mut m = machine(&NesCore, &image(&[]));
+    // First picture: 240 scanlines of 341 dots, four master ticks per dot.
+    // The reset and setup take 19 CPU cycles in five steps; 9087 JMPs of
+    // three cycles reach that boundary exactly, before the first NMI.
+    assert_eq!(
+        m.run(
+            RunLimit::steps(9092)
+                .with_until(Some(Ticks(327_360)))
+                .with_stop_on_frame(true)
+        )
+        .unwrap(),
+        Stop::Frame(DisplayId(0))
+    );
+    assert_eq!((m.now(), m.steps()), (Ticks(327_360), 9092));
+
+    let mut m = machine(&NesCore, &image(&[]));
+    assert_eq!(
+        m.run(RunLimit::steps(1).with_until(Some(Ticks(84))))
+            .unwrap(),
+        Stop::Deadline
+    );
+    assert_eq!((m.now(), m.steps()), (Ticks(84), 1));
+    assert_eq!(m.run(RunLimit::steps(2)).unwrap(), Stop::Steps);
+    assert_eq!((m.now(), m.steps()), (Ticks(108), 2));
+    assert_eq!(m.run(RunLimit::steps(1)).unwrap(), Stop::Steps);
+    assert_eq!((m.now(), m.steps()), (Ticks(108), 2));
+}
+
+#[test]
+fn finish_is_terminal_and_preserves_the_last_picture_and_drains() {
+    let mut m = machine(&NesCore, &image(&[]));
+    m.set_outputs(Outputs::NONE.with_audio(true));
+    m.run(RunLimit::steps(0).with_steps(None).with_stop_on_frame(true))
+        .unwrap();
+    let frame = m.frame(DisplayId(0)).unwrap();
+    let (pixels, serial) = (frame.pixels.to_vec(), frame.serial);
+    let before = (m.now(), m.steps());
+    m.finish().unwrap();
+    assert_eq!(m.status(), Status::Finished);
+    assert_eq!(m.finish().unwrap_err().kind, ErrorKind::Usage);
+    assert_eq!(
+        m.input(InputEvent::ReleaseAll).unwrap_err().kind,
+        ErrorKind::Usage
+    );
+    assert_eq!(
+        m.run(RunLimit::steps(u64::MAX)).unwrap_err().kind,
+        ErrorKind::Usage
+    );
+    assert_eq!(m.reset(ResetKind::Soft).unwrap_err().kind, ErrorKind::Usage);
+    m.set_outputs(Outputs::NONE);
+    let frame = m.frame(DisplayId(0)).unwrap();
+    assert_eq!((frame.pixels, frame.serial), (pixels.as_slice(), serial));
+    let mut sound = Vec::new();
+    m.drain_audio(&mut sound).unwrap();
+    assert_eq!(sound.len(), 682);
+    m.drain_messages(&mut Vec::new());
+    assert_eq!(
+        (m.now(), m.steps(), m.status()),
+        (before.0, before.1, Status::Finished)
+    );
+}
+
+#[test]
+fn run_options_are_usage_errors_and_validation_stays_config_only() {
+    let core: &dyn Core = &NesCore;
+    let identified = identify(core, &image(&[])).unwrap().unwrap();
+    // Content cannot be opened: option errors must precede content access.
+    let source = Source(Vec::new());
+    for options in [
+        vec![("unknown", "true")],
+        vec![("unknown", "true"), ("unknown", "false")],
+        vec![("", "invalid")],
+    ] {
+        core.validate(PLATFORM, identified.config.as_document())
+            .unwrap();
+        let request = CreateRequest::new(
+            PLATFORM,
+            identified.config.as_document(),
+            &source,
+            Rc::new(MemoryStorage::new()),
+        )
+        .with_options(&options);
+        assert_eq!(core.create(&request).err().unwrap().kind, ErrorKind::Usage);
+    }
 }

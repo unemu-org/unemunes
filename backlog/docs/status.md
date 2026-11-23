@@ -2,6 +2,15 @@
 
 Newest entries on top.
 
+## 2026-11-23 — contract 0.4
+
+`unemu-nes-core` states contract 0.4 and pins `unemu-core-api` v0.4.0
+(commit `563f3089f2ad26a189636624faa4696b2bc79d07`). The machine follows the
+0.4 lifecycle: a successful finish enters Finished; input is checked and
+refused before queuing; a run may have no limit; Halted and Off runs return at
+once; a reset clears queued input and held buttons and keeps time; unknown run
+options are usage errors.
+
 ## 2026-11-20 — proof slice done; contract 0.3
 
 The proof slice (epic `nes-a3h`) is done: the unemupc front end pins
