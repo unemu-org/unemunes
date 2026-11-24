@@ -2,6 +2,12 @@
 
 Newest entries on top.
 
+## 2026-11-24 — contract 0.6
+
+`unemu-nes-core` states contract 0.6 and pins `unemu-core-api` v0.6.0
+(commit `a4ec90098e7ca0bc7ce60b2d20af43f140eb3960`). The release only adds
+optional content bindings; the core keeps their Unsupported defaults.
+
 ## 2026-11-23 — contract 0.5
 
 `unemu-nes-core` states contract 0.5 and pins `unemu-core-api` v0.5.0
